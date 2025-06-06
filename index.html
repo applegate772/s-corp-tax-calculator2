@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S-Corp vs Sole Proprietor Tax Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        .calculation-step {
+            border-left: 4px solid #3b82f6;
+            padding-left: 1rem;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <div class="container mx-auto px-4 py-8">
+            <header class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-gray-900 mb-2">
+                    S-Corp vs Sole Proprietor Tax Calculator
+                </h1>
+                <p class="text-gray-600">Internal tool for comparing tax scenarios</p>
+            </header>
+
+            <div class="max-w-6xl mx-auto">
+                <!-- Calculator Form -->
+                <form id="calculatorForm" class="space-y-6 bg-white p-6 rounded-lg shadow mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-4">Tax Calculator Inputs</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Tax Year</label>
+                                <select id="taxYear" class="w-full p-2 border rounded">
+                                    <option value="2023">2023</option>
+                                    <option value="2024" selected>2024</option>
+                                    <option value="2025">2025</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Filing Status</label>
+                                <select id="filingStatus" class="w-full p-2 border rounded">
+                                    <option value="single">Single</option>
+                                    <option value="mfj">Married Filing Jointly</option>
+                                    <option value="mfs">Married Filing Separately</option>
+                                    <option value="hoh">Head of Household</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Net Business Profit ($)</label>
+                                <input type="number" id="profit" value="150000" class="w-full p-2 border rounded" min="0" step="1000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">S-Corp Salary ($)</label>
+                                <input type="number" id="salary" value="60000" class="w-full p-2 border rounded" min="0" step="1000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">
+                                    <input type="checkbox" id="isSSB" class="mr-2">
+                                    Specified Service Trade/Business (SSTB)
+                                </label>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">
+                                    <input type="checkbox" id="maxSolo401k" checked class="mr-2">
+                                    Maximize Solo 401(k)
+                                </label>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Health Insurance Premium ($)</label>
+                                <input type="number" id="healthPremium" value="12000" class="w-full p-2 border rounded" min="0" step="100">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">HSA Contribution ($)</label>
+                                <input type="number" id="hsaContrib" value="3850" class="w-full p-2 border rounded" min="0" max="8300" step="50">
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <button type="button" onclick="toggleAdvanced()" class="text-blue-600 hover:text-blue-800">
+                                <span id="advancedToggle">Show Advanced Options</span>
+                            </button>
+                        </div>
+
+                        <div id="advancedOptions" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t hidden">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">State UI Rate (%)</label>
+                                <input type="number" id="suiRate" value="2.7" class="w-full p-2 border rounded" min="0" max="10" step="0.1">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">State UI Wage Base ($)</label>
+                                <input type="number" id="suiWageBase" value="10000" class="w-full p-2 border rounded" min="0" step="1000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Augusta Rule Daily Rate ($)</label>
+                                <input type="number" id="augustaRate" value="0" class="w-full p-2 border rounded" min="0" step="50">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Augusta Rule Days (max 14)</label>
+                                <input type="number" id="augustaDays" value="0" class="w-full p-2 border rounded" min="0" max="14">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Child Wages ($)</label>
+                                <input type="number" id="childWages" value="0" class="w-full p-2 border rounded" min="0" step="1000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Spouse Wages ($)</label>
+                                <input type="number" id="spouseWages" value="0" class="w-full p-2 border rounded" min="0" step="1000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">S-Corp Admin Costs ($)</label>
+                                <input type="number" id="adminCosts" value="3000" class="w-full p-2 border rounded" min="0" step="100">
+                            </div>
+
+                            <div id="manualRetirementOptions" class="hidden col-span-2">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Employee 401(k) Deferral ($)</label>
+                                        <input type="number" id="employeeDeferral" value="0" class="w-full p-2 border rounded" min="0" step="500">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Employer Match (%)</label>
+                                        <input type="number" id="employerPct" value="0" class="w-full p-2 border rounded" min="0" max="25" step="1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition">
+                                Calculate Tax Comparison
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Loading State -->
+                <div id="loading" class="text-center mt-8 hidden">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p class="mt-2 text-gray-600">Calculating...</p>
+                </div>
+
+                <!-- Results -->
+                <div id="results" class="hidden">
+                    <!-- Summary Results -->
+                    <div class="bg-white p-6 rounded-lg shadow mb-6">
+                        <h2 class="text-2xl font-bold mb-4">Tax Comparison Results</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="border rounded-lg p-4">
+                                <h3 class="text-lg font-semibold mb-3">Sole Proprietor</h3>
+                                <div id="soleResults" class="space-y-2"></div>
+                            </div>
+
+                            <div class="border rounded-lg p-4">
+                                <h3 class="text-lg font-semibold mb-3">S-Corporation</h3>
+                                <div id="sCorpResults" class="space-y-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                            <div class="text-center">
+                                <h3 class="text-lg font-semibold mb-2">Annual Tax Savings with S-Corp</h3>
+                                <p id="taxSavings" class="text-3xl font-bold"></p>
+                                <p id="breakEvenSalary" class="text-sm text-gray-600 mt-2"></p>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 text-center">
+                            <button onclick="exportToPDF()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold">
+                                📄 Export PDF Report
+                            </button>
+                        </div>
+
+                        <div id="advisoryFlags" class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                            <h3 class="text-lg font-semibold mb-2 text-yellow-800">Advisory Notes</h3>
+                            <ul id="flagsList" class="list-disc list-inside space-y-1"></ul>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Breakdown Summary -->
+                    <div class="bg-white p-6 rounded-lg shadow mb-6">
+                        <h3 class="text-lg font-semibold mb-4">Detailed Breakdown</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                            <div>
+                                <h4 class="font-semibold mb-2">Sole Proprietor Details</h4>
+                                <div id="soleBreakdown" class="space-y-1"></div>
+                            </div>
+
+                            <div>
+                                <h4 class="font-semibold mb-2">S-Corp Details</h4>
+                                <div id="sCorpBreakdown" class="space-y-1"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 10-Year Savings Chart -->
+                    <div class="bg-white p-6 rounded-lg shadow mb-6">
+                        <h3 class="text-lg font-semibold mb-4">10-Year Cumulative Tax Savings</h3>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Annual Business Growth Rate (%)</label>
+                            <input type="number" id="growthRate" value="3" min="0" max="20" step="0.5" class="w-32 p-2 border rounded">
+                            <button onclick="updateChart()" class="ml-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Update Chart</button>
+                        </div>
+                        <div class="relative" style="height: 400px;">
+                            <canvas id="savingsChart"></canvas>
+                        </div>
+                        <div id="chartSummary" class="mt-4 p-4 bg-gray-50 rounded text-center">
+                            <p class="text-lg font-semibold">Total 10-Year Savings: <span id="totalSavings" class="text-green-600"></span></p>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Calculations -->
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-bold text-gray-900">Detailed Calculation Breakdowns</h3>
+                        
+                        <!-- Sole Proprietor Details -->
+                        <div class="bg-white border rounded-lg shadow-sm">
+                            <button onclick="toggleDetails('soleDetails')" class="w-full p-4 text-left font-semibold text-lg bg-gray-50 hover:bg-gray-100 transition-colors border-b flex justify-between items-center">
+                                <span>Sole Proprietor - Detailed Calculation Steps</span>
+                                <span class="text-sm" id="soleToggle">▶ Show Details</span>
+                            </button>
+                            <div id="soleDetails" class="p-4 hidden">
+                                <div id="soleSteps" class="space-y-4"></div>
+                                <div id="soleIntermediate" class="mt-6 pt-4 border-t">
+                                    <h4 class="font-semibold text-gray-900 mb-3">Intermediate Values</h4>
+                                    <div id="soleIntermediateValues" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- S-Corp Details -->
+                        <div class="bg-white border rounded-lg shadow-sm">
+                            <button onclick="toggleDetails('sCorpDetails')" class="w-full p-4 text-left font-semibold text-lg bg-gray-50 hover:bg-gray-100 transition-colors border-b flex justify-between items-center">
+                                <span>S-Corporation - Detailed Calculation Steps</span>
+                                <span class="text-sm" id="sCorpToggle">▶ Show Details</span>
+                            </button>
+                            <div id="sCorpDetails" class="p-4 hidden">
+                                <div id="sCorpSteps" class="space-y-4"></div>
+                                <div id="sCorpIntermediate" class="mt-6 pt-4 border-t">
+                                    <h4 class="font-semibold text-gray-900 mb-3">Intermediate Values</h4>
+                                    <div id="sCorpIntermediateValues" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center text-sm text-gray-500 mt-8">
+                    <p>For internal advisory estimates only - not tax advice</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tax constants for different years
+        const TAX_CONSTANTS = {
+            2023: {
+                SOC_SEC_WAGE_BASE: 160200,
+                OASDI_RATE_EMP: 0.062,
+                MEDICARE_RATE_EMP: 0.0145,
+                ADDL_MEDICARE_THRESHOLD: { single: 200000, mfj: 250000, mfs: 125000, hoh: 200000 },
+                ADDL_MEDICARE_RATE: 0.009,
+                FUTA_RATE_EFF: 0.006,
+                FUTA_WAGE_BASE: 7000,
+                "401K_EMPLOYEE_LIMIT": 22500,
+                "401K_CATCH_UP": 7500,
+                "401K_MAX_TOTAL": 66000,
+                SEP_PERCENT_SOLEPROP: 0.20,
+                SEP_PERCENT_SCORP: 0.25,
+                STANDARD_DEDUCTION: { single: 13850, mfj: 27700, mfs: 13850, hoh: 20800 },
+                INCOME_BRACKETS: {
+                    single: [
+                        { min: 0, max: 11000, rate: 0.10 },
+                        { min: 11000, max: 44725, rate: 0.12 },
+                        { min: 44725, max: 95375, rate: 0.22 },
+                        { min: 95375, max: 182050, rate: 0.24 },
+                        { min: 182050, max: 231250, rate: 0.32 },
+                        { min: 231250, max: 578125, rate: 0.35 },
+                        { min: 578125, max: null, rate: 0.37 }
+                    ],
+                    mfj: [
+                        { min: 0, max: 22000, rate: 0.10 },
+                        { min: 22000, max: 89450, rate: 0.12 },
+                        { min: 89450, max: 190750, rate: 0.22 },
+                        { min: 190750, max: 364200, rate: 0.24 },
+                        { min: 364200, max: 462500, rate: 0.32 },
+                        { min: 462500, max: 693750, rate: 0.35 },
+                        { min: 693750, max: null, rate: 0.37 }
+                    ],
+                    mfs: [
+                        { min: 0, max: 11000, rate: 0.10 },
+                        { min: 11000, max: 44725, rate: 0.12 },
+                        { min: 44725, max: 95375, rate: 0.22 },
+                        { min: 95375, max: 182050, rate: 0.24 },
+                        { min: 182050, max: 231250, rate: 0.32 },
+                        { min: 231250, max: 346875, rate: 0.35 },
+                        { min: 346875, max: null, rate: 0.37 }
+                    ],
+                    hoh: [
+                        { min: 0, max: 15700, rate: 0.10 },
+                        { min: 15700, max: 59850, rate: 0.12 },
+                        { min: 59850, max: 95350, rate: 0.22 },
+                        { min: 95350, max: 182050, rate: 0.24 },
+                        { min: 182050, max: 231250, rate: 0.32 },
+                        { min: 231250, max: 578100, rate: 0.35 },
+                        { min: 578100, max: null, rate: 0.37 }
+                    ]
+                },
+                QBI_PHASEOUT: {
+                    single: { start: 182050, end: 232050 },
+                    mfj: { start: 364200, end: 464200 },
+                    mfs: { start: 182050, end: 232050 },
+                    hoh: { start: 182050, end: 232050 }
+                }
+            },
+            2024: {
+                SOC_SEC_WAGE_BASE: 168600,
+                OASDI_RATE_EMP: 0.062,
+                MEDICARE_RATE_EMP: 0.0145,
+                ADDL_MEDICARE_THRESHOLD: { single: 200000, mfj: 250000, mfs: 125000, hoh: 200000 },
+                ADDL_MEDICARE_RATE: 0.009,
+                FUTA_RATE_EFF: 0.006,
+                FUTA_WAGE_BASE: 7000,
+                "401K_EMPLOYEE_LIMIT": 23000,
+                "401K_CATCH_UP": 7500,
+                "401K_MAX_TOTAL": 69000,
+                SEP_PERCENT_SOLEPROP: 0.20,
+                SEP_PERCENT_SCORP: 0.25,
+                STANDARD_DEDUCTION: { single: 14600, mfj: 29200, mfs: 14600, hoh: 21900 },
+                INCOME_BRACKETS: {
+                    single: [
+                        { min: 0, max: 11600, rate: 0.10 },
+                        { min: 11600, max: 47150, rate: 0.12 },
+                        { min: 47150, max: 100525, rate: 0.22 },
+                        { min: 100525, max: 191950, rate: 0.24 },
+                        { min: 191950, max: 243725, rate: 0.32 },
+                        { min: 243725, max: 609350, rate: 0.35 },
+                        { min: 609350, max: null, rate: 0.37 }
+                    ],
+                    mfj: [
+                        { min: 0, max: 23200, rate: 0.10 },
+                        { min: 23200, max: 94300, rate: 0.12 },
+                        { min: 94300, max: 201050, rate: 0.22 },
+                        { min: 201050, max: 383900, rate: 0.24 },
+                        { min: 383900, max: 487450, rate: 0.32 },
+                        { min: 487450, max: 731200, rate: 0.35 },
+                        { min: 731200, max: null, rate: 0.37 }
+                    ],
+                    mfs: [
+                        { min: 0, max: 11600, rate: 0.10 },
+                        { min: 11600, max: 47150, rate: 0.12 },
+                        { min: 47150, max: 100525, rate: 0.22 },
+                        { min: 100525, max: 191950, rate: 0.24 },
+                        { min: 191950, max: 243725, rate: 0.32 },
+                        { min: 243725, max: 365600, rate: 0.35 },
+                        { min: 365600, max: null, rate: 0.37 }
+                    ],
+                    hoh: [
+                        { min: 0, max: 16550, rate: 0.10 },
+                        { min: 16550, max: 63100, rate: 0.12 },
+                        { min: 63100, max: 100500, rate: 0.22 },
+                        { min: 100500, max: 191950, rate: 0.24 },
+                        { min: 191950, max: 243700, rate: 0.32 },
+                        { min: 243700, max: 609350, rate: 0.35 },
+                        { min: 609350, max: null, rate: 0.37 }
+                    ]
+                },
+                QBI_PHASEOUT: {
+                    single: { start: 191950, end: 241950 },
+                    mfj: { start: 383900, end: 483900 },
+                    mfs: { start: 191950, end: 241950 },
+                    hoh: { start: 191950, end: 241950 }
+                }
+            },
+            2025: {
+                SOC_SEC_WAGE_BASE: 176100,
+                OASDI_RATE_EMP: 0.062,
+                MEDICARE_RATE_EMP: 0.0145,
+                ADDL_MEDICARE_THRESHOLD: { single: 200000, mfj: 250000, mfs: 125000, hoh: 200000 },
+                ADDL_MEDICARE_RATE: 0.009,
+                FUTA_RATE_EFF: 0.006,
+                FUTA_WAGE_BASE: 7000,
+                "401K_EMPLOYEE_LIMIT": 23500,
+                "401K_CATCH_UP": 7500,
+                "401K_MAX_TOTAL": 70000,
+                SEP_PERCENT_SOLEPROP: 0.20,
+                SEP_PERCENT_SCORP: 0.25,
+                STANDARD_DEDUCTION: { single: 15000, mfj: 30000, mfs: 15000, hoh: 22500 },
+                INCOME_BRACKETS: {
+                    single: [
+                        { min: 0, max: 11925, rate: 0.10 },
+                        { min: 11925, max: 48475, rate: 0.12 },
+                        { min: 48475, max: 103350, rate: 0.22 },
+                        { min: 103350, max: 197300, rate: 0.24 },
+                        { min: 197300, max: 250525, rate: 0.32 },
+                        { min: 250525, max: 626350, rate: 0.35 },
+                        { min: 626350, max: null, rate: 0.37 }
+                    ],
+                    mfj: [
+                        { min: 0, max: 23850, rate: 0.10 },
+                        { min: 23850, max: 96950, rate: 0.12 },
+                        { min: 96950, max: 206700, rate: 0.22 },
+                        { min: 206700, max: 394600, rate: 0.24 },
+                        { min: 394600, max: 501050, rate: 0.32 },
+                        { min: 501050, max: 751600, rate: 0.35 },
+                        { min: 751600, max: null, rate: 0.37 }
+                    ],
+                    mfs: [
+                        { min: 0, max: 11925, rate: 0.10 },
+                        { min: 11925, max: 48475, rate: 0.12 },
+                        { min: 48475, max: 103350, rate: 0.22 },
+                        { min: 103350, max: 197300, rate: 0.24 },
+                        { min: 197300, max: 250525, rate: 0.32 },
+                        { min: 250525, max: 375800, rate: 0.35 },
+                        { min: 375800, max: null, rate: 0.37 }
+                    ],
+                    hoh: [
+                        { min: 0, max: 17000, rate: 0.10 },
+                        { min: 17000, max: 64850, rate: 0.12 },
+                        { min: 64850, max: 103350, rate: 0.22 },
+                        { min: 103350, max: 197300, rate: 0.24 },
+                        { min: 197300, max: 250500, rate: 0.32 },
+                        { min: 250500, max: 626350, rate: 0.35 },
+                        { min: 626350, max: null, rate: 0.37 }
+                    ]
+                },
+                QBI_PHASEOUT: {
+                    single: { start: 197300, end: 247300 },
+                    mfj: { start: 394600, end: 494600 },
+                    mfs: { start: 197300, end: 247300 },
+                    hoh: { start: 197300, end: 247300 }
+                }
+            }
+        };
+
+        class DetailedCalculator {
+            constructor() {
+                this.steps = [];
+                this.intermediateValues = {};
+            }
+
+            addStep(label, formula, calculation, result, storeName = null) {
+                this.steps.push({ label, formula, calculation, result });
+                if (storeName) {
+                    this.intermediateValues[storeName] = result;
+                }
+                return result;
+            }
+
+            formatCurrency(amount) {
+                return new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }).format(amount);
+            }
+
+            formatPercent(rate) {
+                return (rate * 100).toFixed(2) + '%';
+            }
+        }
+
+        function calculateIncomeTax(taxableIncome, filingStatus, constants) {
+            const brackets = constants.INCOME_BRACKETS[filingStatus] || constants.INCOME_BRACKETS.single;
+            let tax = 0;
+            
+            for (const bracket of brackets) {
+                if (taxableIncome <= bracket.min) break;
+                
+                const taxableInBracket = bracket.max === null 
+                    ? taxableIncome - bracket.min
+                    : Math.min(taxableIncome - bracket.min, bracket.max - bracket.min);
+                
+                if (taxableInBracket > 0) {
+                    tax += taxableInBracket * bracket.rate;
+                }
+            }
+            
+            return tax;
+        }
+
+        function calculateQBIDeduction(qbiBase, filingStatus, isSSTB, constants, taxableIncomeBeforeQBI, w2Wages = 0) {
+            if (qbiBase <= 0) return 0;
+            
+            const baseQBI = qbiBase * 0.20;
+            const taxableIncomeLimit = taxableIncomeBeforeQBI * 0.20;
+            const phaseout = constants.QBI_PHASEOUT[filingStatus] || constants.QBI_PHASEOUT.single;
+            
+            // Step 1: Apply the basic 20% of taxable income limitation
+            let qbiDeduction = Math.min(baseQBI, taxableIncomeLimit);
+            
+            // Step 2: Apply SSTB and wage-based limitations if above phase-out threshold
+            if (taxableIncomeBeforeQBI > phaseout.start) {
+                
+                if (isSSTB) {
+                    // SSTB phase-out: linear reduction to zero
+                    if (taxableIncomeBeforeQBI >= phaseout.end) {
+                        return 0;
+                    }
+                    const phaseoutPercentage = (taxableIncomeBeforeQBI - phaseout.start) / (phaseout.end - phaseout.start);
+                    qbiDeduction = qbiDeduction * (1 - phaseoutPercentage);
+                } else {
+                    // Non-SSTB: Apply W-2 wage limitation (50% of W-2 wages or 25% of wages + 2.5% of depreciable property)
+                    // For simplicity, we'll use the 50% of W-2 wages test
+                    const wageLimit = w2Wages * 0.50;
+                    
+                    if (taxableIncomeBeforeQBI >= phaseout.end) {
+                        // Above phase-out range: wage limitation applies fully
+                        qbiDeduction = Math.min(qbiDeduction, wageLimit);
+                    } else {
+                        // Within phase-out range: blend between no limitation and full wage limitation
+                        const phaseoutPercentage = (taxableIncomeBeforeQBI - phaseout.start) / (phaseout.end - phaseout.start);
+                        const wageLimitedDeduction = Math.min(qbiDeduction, wageLimit);
+                        qbiDeduction = qbiDeduction * (1 - phaseoutPercentage) + wageLimitedDeduction * phaseoutPercentage;
+                    }
+                }
+            }
+            
+            return Math.max(0, qbiDeduction);
+        }
+
+        function calculateSoleProprietor(inputs, constants) {
+            const calc = new DetailedCalculator();
+            
+            // Step 1: SE Tax Base
+            const SE_TAX_BASE = calc.addStep(
+                'Self-Employment Tax Base',
+                'SE Tax Base = Net Profit × 0.9235',
+                `${calc.formatCurrency(inputs.profit)} × 0.9235`,
+                0.9235 * inputs.profit,
+                'SE_TAX_BASE'
+            );
+            
+            // Step 2: SE Tax Components
+            const oasdiWages = Math.min(SE_TAX_BASE, constants.SOC_SEC_WAGE_BASE);
+            const oasdi = calc.addStep(
+                'SE Tax - OASDI Component',
+                'OASDI = min(SE Base, SS Wage Base) × 12.4%',
+                `min(${calc.formatCurrency(SE_TAX_BASE)}, ${calc.formatCurrency(constants.SOC_SEC_WAGE_BASE)}) × 12.4% = ${calc.formatCurrency(oasdiWages)} × 12.4%`,
+                oasdiWages * 0.124,
+                'SE_OASDI'
+            );
+            
+            const medicare = calc.addStep(
+                'SE Tax - Medicare Component',
+                'Medicare = SE Base × 2.9%',
+                `${calc.formatCurrency(SE_TAX_BASE)} × 2.9%`,
+                SE_TAX_BASE * 0.029,
+                'SE_MEDICARE'
+            );
+            
+            const surtaxAmount = Math.max(0, SE_TAX_BASE - constants.ADDL_MEDICARE_THRESHOLD[inputs.filingStatus]);
+            const surtax = calc.addStep(
+                'SE Tax - Additional Medicare',
+                'Additional Medicare = max(0, SE Base - Threshold) × 0.9%',
+                `max(0, ${calc.formatCurrency(SE_TAX_BASE)} - ${calc.formatCurrency(constants.ADDL_MEDICARE_THRESHOLD[inputs.filingStatus])}) × 0.9% = ${calc.formatCurrency(surtaxAmount)} × 0.9%`,
+                surtaxAmount * constants.ADDL_MEDICARE_RATE,
+                'SE_SURTAX'
+            );
+            
+            const seTotalTax = calc.addStep(
+                'Total Self-Employment Tax',
+                'Total SE Tax = OASDI + Medicare + Additional Medicare',
+                `${calc.formatCurrency(oasdi)} + ${calc.formatCurrency(medicare)} + ${calc.formatCurrency(surtax)}`,
+                oasdi + medicare + surtax,
+                'SE_TOTAL'
+            );
+            
+            // Step 3: SE Tax Deduction
+            const seDeduction = calc.addStep(
+                'SE Tax Deduction (½ of SE Tax)',
+                'SE Deduction = SE Tax × 0.5',
+                `${calc.formatCurrency(seTotalTax)} × 0.5`,
+                seTotalTax * 0.5,
+                'SE_DEDUCTION'
+            );
+            
+            // Step 4: Retirement Calculations
+            const adjustedProfit = calc.addStep(
+                'Adjusted Profit for Retirement',
+                'Adjusted Profit = Net Profit - SE Deduction',
+                `${calc.formatCurrency(inputs.profit)} - ${calc.formatCurrency(seDeduction)}`,
+                inputs.profit - seDeduction,
+                'ADJUSTED_PROFIT'
+            );
+            
+            let employeeDeferral, employerContrib, retirementTotal;
+            
+            if (inputs.maxSolo401k) {
+                employeeDeferral = calc.addStep(
+                    'Employee 401(k) Deferral',
+                    'Employee Deferral = min(401k Limit, Adjusted Profit)',
+                    `min(${calc.formatCurrency(constants['401K_EMPLOYEE_LIMIT'])}, ${calc.formatCurrency(adjustedProfit)})`,
+                    Math.min(constants['401K_EMPLOYEE_LIMIT'], adjustedProfit),
+                    'EMP_DEFERRAL'
+                );
+                
+                const maxEmployerContrib = constants['401K_MAX_TOTAL'] - employeeDeferral;
+                employerContrib = calc.addStep(
+                    'Employer 401(k) Contribution',
+                    'Employer = min(Max Total - Employee, 20% × (Adjusted Profit - Employee))',
+                    `min(${calc.formatCurrency(maxEmployerContrib)}, 20% × (${calc.formatCurrency(adjustedProfit)} - ${calc.formatCurrency(employeeDeferral)}))`,
+                    Math.min(maxEmployerContrib, constants.SEP_PERCENT_SOLEPROP * (adjustedProfit - employeeDeferral)),
+                    'EMP_CONTRIB'
+                );
+            } else {
+                employeeDeferral = calc.addStep(
+                    'Employee 401(k) Deferral',
+                    'Employee Deferral = min(Desired Amount, Adjusted Profit)',
+                    `min(${calc.formatCurrency(inputs.employeeDeferral || 0)}, ${calc.formatCurrency(adjustedProfit)})`,
+                    Math.min(inputs.employeeDeferral || 0, adjustedProfit),
+                    'EMP_DEFERRAL'
+                );
+                
+                employerContrib = calc.addStep(
+                    'Employer 401(k) Contribution',
+                    'Employer = min(Rate × Adjusted Profit, Max Total - Employee)',
+                    `min(${calc.formatPercent((inputs.employerPct || 0) / 100)} × ${calc.formatCurrency(adjustedProfit)}, ${calc.formatCurrency(constants['401K_MAX_TOTAL'] - employeeDeferral)})`,
+                    Math.min((inputs.employerPct || 0) / 100 * adjustedProfit, constants['401K_MAX_TOTAL'] - employeeDeferral),
+                    'EMP_CONTRIB'
+                );
+            }
+            
+            retirementTotal = calc.addStep(
+                'Total Retirement Contributions',
+                'Total = Employee + Employer',
+                `${calc.formatCurrency(employeeDeferral)} + ${calc.formatCurrency(employerContrib)}`,
+                employeeDeferral + employerContrib,
+                'RETIREMENT_TOTAL'
+            );
+            
+            // Step 5: Health Deductions
+            const healthDeductions = calc.addStep(
+                'Health Insurance & HSA Deductions',
+                'Health Deductions = Health Premium + HSA Contribution',
+                `${calc.formatCurrency(inputs.healthPremium)} + ${calc.formatCurrency(inputs.hsaContrib)}`,
+                inputs.healthPremium + inputs.hsaContrib,
+                'HEALTH_DEDUCTIONS'
+            );
+            
+            // Step 6: Family Wages
+            let familyPayrollTax = 0;
+            if (inputs.childWages > 0 || inputs.spouseWages > 0) {
+                // Children under 18 are FICA exempt for sole proprietors
+                const spouseFICA = inputs.spouseWages * (constants.OASDI_RATE_EMP + constants.MEDICARE_RATE_EMP) * 2;
+                familyPayrollTax = calc.addStep(
+                    'Family Payroll Taxes',
+                    'Child wages FICA exempt, Spouse FICA = Wages × 15.3%',
+                    `Child: ${calc.formatCurrency(inputs.childWages)} × 0% + Spouse: ${calc.formatCurrency(inputs.spouseWages)} × 15.3%`,
+                    spouseFICA,
+                    'FAMILY_PAYROLL'
+                );
+            }
+            
+            // Step 7: QBI Base
+            const qbiBase = calc.addStep(
+                'QBI Base Income',
+                'QBI Base = Net Profit - SE Deduction - Employer Retirement - Health Premium',
+                `${calc.formatCurrency(inputs.profit)} - ${calc.formatCurrency(seDeduction)} - ${calc.formatCurrency(employerContrib)} - ${calc.formatCurrency(inputs.healthPremium)}`,
+                inputs.profit - seDeduction - employerContrib - inputs.healthPremium,
+                'QBI_BASE'
+            );
+            
+            // Step 8: QBI Deduction
+            const taxableIncomeForQBI = inputs.profit - seDeduction - retirementTotal - healthDeductions + inputs.childWages + inputs.spouseWages;
+            const qbiDeduction = calculateQBIDeduction(qbiBase, inputs.filingStatus, inputs.isSSB, constants, taxableIncomeForQBI, 0);
+            
+            calc.addStep(
+                'QBI Deduction (20% of QBI)',
+                `QBI Deduction = min(20% × QBI Base, 20% × Taxable Income)${inputs.isSSB ? ' [SSTB Phase-out Applied]' : ''}`,
+                `min(20% × ${calc.formatCurrency(qbiBase)}, 20% × ${calc.formatCurrency(taxableIncomeForQBI)}) ${inputs.isSSB ? '(SSTB phase-out applied)' : ''}`,
+                qbiDeduction,
+                'QBI_DEDUCTION'
+            );
+            
+            // Step 9: Taxable Income Calculation
+            const taxableIncomeBeforeStandardDeduction = inputs.profit - seDeduction - retirementTotal - healthDeductions - qbiDeduction + inputs.childWages + inputs.spouseWages;
+            
+            calc.addStep(
+                'Taxable Income Before Standard Deduction',
+                'Net Profit - SE Deduction - Retirement - Health - QBI + Family Wages',
+                `${calc.formatCurrency(inputs.profit)} - ${calc.formatCurrency(seDeduction)} - ${calc.formatCurrency(retirementTotal)} - ${calc.formatCurrency(healthDeductions)} - ${calc.formatCurrency(qbiDeduction)} + ${calc.formatCurrency(inputs.childWages + inputs.spouseWages)}`,
+                taxableIncomeBeforeStandardDeduction,
+                'TAXABLE_BEFORE_STD'
+            );
+            
+            const taxableIncome = calc.addStep(
+                'Final Taxable Income',
+                'Taxable Income = (Income Before Std Deduction) - Standard Deduction',
+                `${calc.formatCurrency(taxableIncomeBeforeStandardDeduction)} - ${calc.formatCurrency(constants.STANDARD_DEDUCTION[inputs.filingStatus])}`,
+                Math.max(0, taxableIncomeBeforeStandardDeduction - constants.STANDARD_DEDUCTION[inputs.filingStatus]),
+                'TAXABLE_INCOME'
+            );
+            
+            // Step 10: Federal Income Tax
+            const federalIncomeTax = calc.addStep(
+                'Federal Income Tax',
+                'Income Tax = Progressive Tax Brackets Applied',
+                `Tax on ${calc.formatCurrency(taxableIncome)} using ${inputs.filingStatus} brackets`,
+                calculateIncomeTax(taxableIncome, inputs.filingStatus, constants),
+                'FEDERAL_TAX'
+            );
+            
+            // Step 11: Total Tax
+            const totalTax = calc.addStep(
+                'Total Tax Liability',
+                'Total Tax = SE Tax + Federal Income Tax + Family Payroll Tax',
+                `${calc.formatCurrency(seTotalTax)} + ${calc.formatCurrency(federalIncomeTax)} + ${calc.formatCurrency(familyPayrollTax)}`,
+                seTotalTax + federalIncomeTax + familyPayrollTax,
+                'TOTAL_TAX'
+            );
+            
+            // Step 12: Net After-Tax Cash
+            const netCash = calc.addStep(
+                'Net After-Tax Cash',
+                'Net Cash = Net Profit - Total Tax',
+                `${calc.formatCurrency(inputs.profit)} - ${calc.formatCurrency(totalTax)}`,
+                inputs.profit - totalTax,
+                'NET_CASH'
+            );
+            
+            return {
+                seTax: seTotalTax,
+                federalTax: federalIncomeTax,
+                qbiDeduction: qbiDeduction,
+                retirementTotal: retirementTotal,
+                totalTax: totalTax,
+                netCash: netCash,
+                taxableIncome: taxableIncome,
+                effectiveRate: totalTax / inputs.profit,
+                steps: calc.steps,
+                intermediateValues: calc.intermediateValues,
+                familyPayrollTax: familyPayrollTax,
+                seOasdi: oasdi,
+                seMedicare: medicare,
+                seSurtax: surtax
+            };
+        }
+
+        function calculateSCorp(inputs, constants) {
+            const calc = new DetailedCalculator();
+            
+            // Step 1: Payroll Taxes on Salary
+            const salary = inputs.salary;
+            
+            const employeeOASDI = calc.addStep(
+                'Employee OASDI Tax',
+                'Employee OASDI = min(Salary, SS Wage Base) × 6.2%',
+                `min(${calc.formatCurrency(salary)}, ${calc.formatCurrency(constants.SOC_SEC_WAGE_BASE)}) × 6.2%`,
+                Math.min(salary, constants.SOC_SEC_WAGE_BASE) * constants.OASDI_RATE_EMP,
+                'EMP_OASDI'
+            );
+            
+            const employeeMedicare = calc.addStep(
+                'Employee Medicare Tax',
+                'Employee Medicare = Salary × 1.45%',
+                `${calc.formatCurrency(salary)} × 1.45%`,
+                salary * constants.MEDICARE_RATE_EMP,
+                'EMP_MEDICARE'
+            );
+            
+            const additionalMedicare = calc.addStep(
+                'Additional Medicare Tax',
+                'Additional Medicare = max(0, Salary - Threshold) × 0.9%',
+                `max(0, ${calc.formatCurrency(salary)} - ${calc.formatCurrency(constants.ADDL_MEDICARE_THRESHOLD[inputs.filingStatus])}) × 0.9%`,
+                Math.max(0, salary - constants.ADDL_MEDICARE_THRESHOLD[inputs.filingStatus]) * constants.ADDL_MEDICARE_RATE,
+                'ADDL_MEDICARE'
+            );
+            
+            const employerOASDI = calc.addStep(
+                'Employer OASDI Tax',
+                'Employer OASDI = min(Salary, SS Wage Base) × 6.2%',
+                `min(${calc.formatCurrency(salary)}, ${calc.formatCurrency(constants.SOC_SEC_WAGE_BASE)}) × 6.2%`,
+                Math.min(salary, constants.SOC_SEC_WAGE_BASE) * constants.OASDI_RATE_EMP,
+                'EMP_OASDI'
+            );
+            
+            const employerMedicare = calc.addStep(
+                'Employer Medicare Tax',
+                'Employer Medicare = Salary × 1.45%',
+                `${calc.formatCurrency(salary)} × 1.45%`,
+                salary * constants.MEDICARE_RATE_EMP,
+                'EMP_MEDICARE'
+            );
+            
+            const futa = calc.addStep(
+                'FUTA Tax',
+                'FUTA = min(Salary, FUTA Base) × 0.6%',
+                `min(${calc.formatCurrency(salary)}, ${calc.formatCurrency(constants.FUTA_WAGE_BASE)}) × 0.6%`,
+                Math.min(salary, constants.FUTA_WAGE_BASE) * constants.FUTA_RATE_EFF,
+                'FUTA'
+            );
+            
+            const sui = calc.addStep(
+                'State Unemployment Tax',
+                'SUI = min(Salary, SUI Base) × SUI Rate',
+                `min(${calc.formatCurrency(salary)}, ${calc.formatCurrency(inputs.suiWageBase)}) × ${inputs.suiRate}%`,
+                Math.min(salary, inputs.suiWageBase) * (inputs.suiRate / 100),
+                'SUI'
+            );
+            
+            const totalEmployeePayrollTax = employeeOASDI + employeeMedicare + additionalMedicare;
+            const totalEmployerPayrollTax = employerOASDI + employerMedicare + futa + sui;
+            const totalPayrollTax = totalEmployeePayrollTax + totalEmployerPayrollTax;
+            
+            // Step 2: Retirement Contributions
+            let employeeDeferral, employerContrib, retirementTotal;
+            
+            if (inputs.maxSolo401k) {
+                employeeDeferral = calc.addStep(
+                    'Employee 401(k) Deferral',
+                    'Employee Deferral = min(401k Limit, Salary)',
+                    `min(${calc.formatCurrency(constants['401K_EMPLOYEE_LIMIT'])}, ${calc.formatCurrency(salary)})`,
+                    Math.min(constants['401K_EMPLOYEE_LIMIT'], salary),
+                    'EMP_DEFERRAL'
+                );
+                
+                const maxEmployerContrib = constants['401K_MAX_TOTAL'] - employeeDeferral;
+                employerContrib = calc.addStep(
+                    'Employer 401(k) Contribution',
+                    'Employer = min(Max Total - Employee, 25% × Salary)',
+                    `min(${calc.formatCurrency(maxEmployerContrib)}, 25% × ${calc.formatCurrency(salary)})`,
+                    Math.min(maxEmployerContrib, constants.SEP_PERCENT_SCORP * salary),
+                    'EMP_CONTRIB'
+                );
+            } else {
+                employeeDeferral = calc.addStep(
+                    'Employee 401(k) Deferral',
+                    'Employee Deferral = min(Desired Amount, Salary)',
+                    `min(${calc.formatCurrency(inputs.employeeDeferral || 0)}, ${calc.formatCurrency(salary)})`,
+                    Math.min(inputs.employeeDeferral || 0, salary),
+                    'EMP_DEFERRAL'
+                );
+                
+                employerContrib = calc.addStep(
+                    'Employer 401(k) Contribution',
+                    'Employer = min(Rate × Salary, Max Total - Employee)',
+                    `min(${calc.formatPercent((inputs.employerPct || 0) / 100)} × ${calc.formatCurrency(salary)}, ${calc.formatCurrency(constants['401K_MAX_TOTAL'] - employeeDeferral)})`,
+                    Math.min((inputs.employerPct || 0) / 100 * salary, constants['401K_MAX_TOTAL'] - employeeDeferral),
+                    'EMP_CONTRIB'
+                );
+            }
+            
+            retirementTotal = calc.addStep(
+                'Total Retirement Contributions',
+                'Total = Employee + Employer',
+                `${calc.formatCurrency(employeeDeferral)} + ${calc.formatCurrency(employerContrib)}`,
+                employeeDeferral + employerContrib,
+                'RETIREMENT_TOTAL'
+            );
+            
+            // Step 3: Augusta Rule
+            const augustaRent = calc.addStep(
+                'Augusta Rule Deduction',
+                'Augusta Rent = Daily Rate × Days (max 14)',
+                `${calc.formatCurrency(inputs.augustaRate)} × ${inputs.augustaDays} days`,
+                inputs.augustaRate * Math.min(inputs.augustaDays, 14),
+                'AUGUSTA_RENT'
+            );
+            
+            // Step 4: Family Wages
+            let familyPayrollTax = 0;
+            if (inputs.childWages > 0 || inputs.spouseWages > 0) {
+                const childFICA = inputs.childWages * (constants.OASDI_RATE_EMP + constants.MEDICARE_RATE_EMP) * 2;
+                const spouseFICA = inputs.spouseWages * (constants.OASDI_RATE_EMP + constants.MEDICARE_RATE_EMP) * 2;
+                const childFUTA = Math.min(inputs.childWages, constants.FUTA_WAGE_BASE) * constants.FUTA_RATE_EFF;
+                const spouseFUTA = Math.min(inputs.spouseWages, constants.FUTA_WAGE_BASE) * constants.FUTA_RATE_EFF;
+                
+                familyPayrollTax = calc.addStep(
+                    'Family Payroll Taxes',
+                    'Child + Spouse FICA + FUTA (no exemptions in S-Corp)',
+                    `Child FICA: ${calc.formatCurrency(childFICA)} + Spouse FICA: ${calc.formatCurrency(spouseFICA)} + FUTA: ${calc.formatCurrency(childFUTA + spouseFUTA)}`,
+                    childFICA + spouseFICA + childFUTA + spouseFUTA,
+                    'FAMILY_PAYROLL'
+                );
+            }
+            
+            // Step 5: Business Profit After Expenses
+            const businessProfit = calc.addStep(
+                'Business Profit After All Expenses',
+                'Business Profit = Net Profit - Salary - Employer Payroll Taxes - Employer Retirement - Augusta Rent - Family Payroll',
+                `${calc.formatCurrency(inputs.profit)} - ${calc.formatCurrency(salary)} - ${calc.formatCurrency(totalEmployerPayrollTax)} - ${calc.formatCurrency(employerContrib)} - ${calc.formatCurrency(augustaRent)} - ${calc.formatCurrency(familyPayrollTax)}`,
+                inputs.profit - salary - totalEmployerPayrollTax - employerContrib - augustaRent - familyPayrollTax,
+                'BUSINESS_PROFIT'
+            );
+            
+            const distributions = calc.addStep(
+                'S-Corp Distributions',
+                'Distributions = Business Profit (assumes full distribution)',
+                `${calc.formatCurrency(businessProfit)}`,
+                businessProfit,
+                'DISTRIBUTIONS'
+            );
+            
+            // Step 6: QBI Deduction
+            const taxableIncomeForQBI = businessProfit + salary;
+            const qbiDeduction = calc.addStep(
+                'QBI Deduction (20% of Business Profit)',
+                `QBI Deduction = min(20% × QBI Base, 20% × Taxable Income, W-2 Wage Limits)${inputs.isSSB ? ' [SSTB limits may apply]' : ''}`,
+                `QBI: ${calc.formatCurrency(businessProfit)}, Taxable Income: ${calc.formatCurrency(taxableIncomeForQBI)}, W-2 Wages: ${calc.formatCurrency(salary)} ${inputs.isSSB ? '(SSTB phase-out applied)' : ''}`,
+                calculateQBIDeduction(businessProfit, inputs.filingStatus, inputs.isSSB, constants, taxableIncomeForQBI, salary),
+                'QBI_DEDUCTION'
+            );
+            
+            // Step 7: Taxable Income
+            const w2Income = salary + inputs.healthPremium + inputs.hsaContrib;
+            
+            calc.addStep(
+                'W-2 Income (including health benefits)',
+                'W-2 Income = Salary + Health Premium + HSA (taxable for income, not FICA)',
+                `${calc.formatCurrency(salary)} + ${calc.formatCurrency(inputs.healthPremium)} + ${calc.formatCurrency(inputs.hsaContrib)}`,
+                w2Income,
+                'W2_INCOME'
+            );
+            
+            const taxableIncome = calc.addStep(
+                'Taxable Income',
+                'W-2 Income + Distributions - Retirement - Health - HSA - QBI - Standard Deduction',
+                `${calc.formatCurrency(w2Income)} + ${calc.formatCurrency(distributions)} - ${calc.formatCurrency(retirementTotal)} - ${calc.formatCurrency(inputs.healthPremium)} - ${calc.formatCurrency(inputs.hsaContrib)} - ${calc.formatCurrency(qbiDeduction)} - ${calc.formatCurrency(constants.STANDARD_DEDUCTION[inputs.filingStatus])}`,
+                Math.max(0, w2Income + distributions - retirementTotal - inputs.healthPremium - inputs.hsaContrib - qbiDeduction - constants.STANDARD_DEDUCTION[inputs.filingStatus]),
+                'TAXABLE_INCOME'
+            );
+            
+            // Step 8: Federal Income Tax
+            const federalIncomeTax = calc.addStep(
+                'Federal Income Tax',
+                'Income Tax = Progressive Tax Brackets Applied',
+                `Tax on ${calc.formatCurrency(taxableIncome)} using ${inputs.filingStatus} brackets`,
+                calculateIncomeTax(taxableIncome, inputs.filingStatus, constants),
+                'FEDERAL_TAX'
+            );
+            
+            // Step 9: Total Tax
+            const totalTax = calc.addStep(
+                'Total Tax Liability',
+                'Total Tax = Employee Payroll + Employer Payroll + Family Payroll + Federal Income Tax',
+                `${calc.formatCurrency(totalEmployeePayrollTax)} + ${calc.formatCurrency(totalEmployerPayrollTax)} + ${calc.formatCurrency(familyPayrollTax)} + ${calc.formatCurrency(federalIncomeTax)}`,
+                totalEmployeePayrollTax + totalEmployerPayrollTax + familyPayrollTax + federalIncomeTax,
+                'TOTAL_TAX'
+            );
+            
+            // Step 10: Net After-Tax Cash
+            const netCash = calc.addStep(
+                'Net After-Tax Cash',
+                'Net Cash = Salary + Distributions - Employee Payroll Tax - Federal Tax - Admin Costs + Augusta Rent',
+                `${calc.formatCurrency(salary)} + ${calc.formatCurrency(distributions)} - ${calc.formatCurrency(totalEmployeePayrollTax)} - ${calc.formatCurrency(federalIncomeTax)} - ${calc.formatCurrency(inputs.adminCosts)} + ${calc.formatCurrency(augustaRent)}`,
+                salary + distributions - totalEmployeePayrollTax - federalIncomeTax - inputs.adminCosts + augustaRent,
+                'NET_CASH'
+            );
+            
+            return {
+                payrollTax: totalPayrollTax,
+                employeePayrollTax: totalEmployeePayrollTax,
+                employerPayrollTax: totalEmployerPayrollTax,
+                federalTax: federalIncomeTax,
+                qbiDeduction: qbiDeduction,
+                retirementTotal: retirementTotal,
+                totalTax: totalTax,
+                netCash: netCash,
+                taxableIncome: taxableIncome,
+                effectiveRate: totalTax / inputs.profit,
+                distributions: distributions,
+                businessProfit: businessProfit,
+                futa: futa,
+                sui: sui,
+                augustaRent: augustaRent,
+                familyPayrollTax: familyPayrollTax,
+                steps: calc.steps,
+                intermediateValues: calc.intermediateValues
+            };
+        }
+
+        function findBreakEvenSalary(inputs, constants) {
+            const soleResult = calculateSoleProprietor(inputs, constants);
+            const currentSCorpResult = calculateSCorp(inputs, constants);
+            
+            // If S-Corp is currently worse than sole prop (including admin costs), break-even is lower salary
+            if (currentSCorpResult.totalTax + inputs.adminCosts >= soleResult.totalTax) {
+                // Search downward from current salary
+                for (let salary = inputs.salary; salary >= 30000; salary -= 5000) {
+                    const testInputs = { ...inputs, salary: salary };
+                    const sCorpResult = calculateSCorp(testInputs, constants);
+                    if (sCorpResult.totalTax + inputs.adminCosts <= soleResult.totalTax) {
+                        // Found where S-Corp becomes beneficial, refine
+                        for (let refinedSalary = salary; refinedSalary <= salary + 5000; refinedSalary += 1000) {
+                            const testInputs2 = { ...inputs, salary: refinedSalary };
+                            const sCorpResult2 = calculateSCorp(testInputs2, constants);
+                            if (Math.abs((sCorpResult2.totalTax + inputs.adminCosts) - soleResult.totalTax) < 500) {
+                                return refinedSalary;
+                            }
+                        }
+                        return salary;
+                    }
+                }
+                return 30000; // Minimum reasonable salary
+            }
+            
+            // S-Corp is currently better, so break-even is higher salary
+            // Search upward from current salary
+            const maxSalary = Math.min(inputs.profit - 5000, inputs.profit * 0.95);
+            for (let salary = inputs.salary; salary <= maxSalary; salary += 5000) {
+                const testInputs = { ...inputs, salary: salary };
+                const sCorpResult = calculateSCorp(testInputs, constants);
+                if (sCorpResult.totalTax + inputs.adminCosts >= soleResult.totalTax) {
+                    // Found where S-Corp becomes worse, refine
+                    for (let refinedSalary = salary - 5000; refinedSalary <= salary; refinedSalary += 1000) {
+                        const testInputs2 = { ...inputs, salary: refinedSalary };
+                        const sCorpResult2 = calculateSCorp(testInputs2, constants);
+                        if (Math.abs((sCorpResult2.totalTax + inputs.adminCosts) - soleResult.totalTax) < 500) {
+                            return refinedSalary;
+                        }
+                    }
+                    return salary - 5000;
+                }
+            }
+            
+            // If we get here, S-Corp is beneficial even at max salary
+            return maxSalary;
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).format(amount);
+        }
+
+        function displayResults(soleResult, sCorpResult, inputs, constants) {
+            // Calculate true net benefit including admin costs
+            const pureTaxSavings = soleResult.totalTax - sCorpResult.totalTax;
+            const netBenefit = pureTaxSavings - inputs.adminCosts;
+            const breakEvenSalary = findBreakEvenSalary(inputs, constants);
+            
+            // Helper function to get color class based on comparison
+            const getColorClass = (soleValue, sCorpValue, isDeduction = false) => {
+                if (Math.abs(soleValue - sCorpValue) < 1) return 'text-black'; // Same values
+                if (isDeduction) {
+                    // For deductions, higher is better (green), lower is worse (red)
+                    return soleValue > sCorpValue ? 'text-green-600' : 'text-red-600';
+                } else {
+                    // For taxes/costs, lower is better (green), higher is worse (red)
+                    return soleValue < sCorpValue ? 'text-green-600' : 'text-red-600';
+                }
+            };
+
+            const getSCorpColorClass = (soleValue, sCorpValue, isDeduction = false) => {
+                if (Math.abs(soleValue - sCorpValue) < 1) return 'text-black'; // Same values
+                if (isDeduction) {
+                    // For deductions, higher is better (green), lower is worse (red)
+                    return sCorpValue > soleValue ? 'text-green-600' : 'text-red-600';
+                } else {
+                    // For taxes/costs, lower is better (green), higher is worse (red)
+                    return sCorpValue < soleValue ? 'text-green-600' : 'text-red-600';
+                }
+            };
+
+            // Calculate FICA tax for comparison
+            const ficaTax = sCorpResult.payrollTax - (sCorpResult.futa || 0) - (sCorpResult.sui || 0);
+            
+            // Sole Proprietor Results
+            document.getElementById('soleResults').innerHTML = `
+                <div class="flex justify-between"><span>Self-Employment Tax:</span><span class="${getColorClass(soleResult.seTax, ficaTax)}">${formatCurrency(soleResult.seTax)}</span></div>
+                <div class="flex justify-between"><span>Payroll Tax (FICA):</span><span class="${getColorClass(0, ficaTax)}">$0</span></div>
+                <div class="flex justify-between"><span>FUTA Tax:</span><span class="${getColorClass(0, sCorpResult.futa || 0)}">$0</span></div>
+                <div class="flex justify-between"><span>SUI Tax:</span><span class="${getColorClass(0, sCorpResult.sui || 0)}">$0</span></div>
+                <div class="flex justify-between"><span>Federal Income Tax:</span><span>${formatCurrency(soleResult.federalTax)}</span></div>
+                <div class="flex justify-between"><span>QBI Deduction:</span><span class="${getColorClass(soleResult.qbiDeduction, sCorpResult.qbiDeduction, true)}">-${formatCurrency(soleResult.qbiDeduction)}</span></div>
+                <div class="flex justify-between"><span>Health Insurance Deduction:</span><span class="${getColorClass(inputs.healthPremium, inputs.healthPremium, true)}">-${formatCurrency(inputs.healthPremium)}</span></div>
+                <div class="flex justify-between"><span>HSA Deduction:</span><span class="${getColorClass(inputs.hsaContrib, inputs.hsaContrib, true)}">-${formatCurrency(inputs.hsaContrib)}</span></div>
+                <div class="flex justify-between"><span>Retirement Contributions:</span><span class="${getColorClass(soleResult.retirementTotal, sCorpResult.retirementTotal, true)}">-${formatCurrency(soleResult.retirementTotal)}</span></div>
+                <div class="flex justify-between"><span>Augusta Rule Deduction:</span><span class="${getColorClass(0, sCorpResult.augustaRent || 0, true)}">$0</span></div>
+                <div class="flex justify-between"><span>Family Payroll Tax:</span><span class="${getColorClass(soleResult.familyPayrollTax, sCorpResult.familyPayrollTax)}">${formatCurrency(soleResult.familyPayrollTax)}</span></div>
+                <div class="flex justify-between"><span>Admin Costs:</span><span class="${getColorClass(0, inputs.adminCosts)}">$0</span></div>
+                <div class="flex justify-between border-t pt-2 font-semibold"><span>Total Tax:</span><span>${formatCurrency(soleResult.totalTax)}</span></div>
+                <div class="flex justify-between font-semibold"><span>Net After-Tax Cash:</span><span>${formatCurrency(soleResult.netCash)}</span></div>
+                <div class="flex justify-between"><span>Effective Tax Rate:</span><span>${(soleResult.effectiveRate * 100).toFixed(1)}%</span></div>
+            `;
+            
+            // S-Corp Results  
+            document.getElementById('sCorpResults').innerHTML = `
+                <div class="flex justify-between"><span>Self-Employment Tax:</span><span class="${getSCorpColorClass(soleResult.seTax, 0)}">$0</span></div>
+                <div class="flex justify-between"><span>Payroll Tax (FICA):</span><span class="${getSCorpColorClass(0, ficaTax)}">${formatCurrency(ficaTax)}</span></div>
+                <div class="flex justify-between"><span>FUTA Tax:</span><span class="${getSCorpColorClass(0, sCorpResult.futa || 0)}">${formatCurrency(sCorpResult.futa || 0)}</span></div>
+                <div class="flex justify-between"><span>SUI Tax:</span><span class="${getSCorpColorClass(0, sCorpResult.sui || 0)}">${formatCurrency(sCorpResult.sui || 0)}</span></div>
+                <div class="flex justify-between"><span>Federal Income Tax:</span><span>${formatCurrency(sCorpResult.federalTax)}</span></div>
+                <div class="flex justify-between"><span>QBI Deduction:</span><span class="${getSCorpColorClass(soleResult.qbiDeduction, sCorpResult.qbiDeduction, true)}">-${formatCurrency(sCorpResult.qbiDeduction)}</span></div>
+                <div class="flex justify-between"><span>Health Insurance Deduction:</span><span class="${getSCorpColorClass(inputs.healthPremium, inputs.healthPremium, true)}">-${formatCurrency(inputs.healthPremium)}</span></div>
+                <div class="flex justify-between"><span>HSA Deduction:</span><span class="${getSCorpColorClass(inputs.hsaContrib, inputs.hsaContrib, true)}">-${formatCurrency(inputs.hsaContrib)}</span></div>
+                <div class="flex justify-between"><span>Retirement Contributions:</span><span class="${getSCorpColorClass(soleResult.retirementTotal, sCorpResult.retirementTotal, true)}">-${formatCurrency(sCorpResult.retirementTotal)}</span></div>
+                <div class="flex justify-between"><span>Augusta Rule Deduction:</span><span class="${getSCorpColorClass(0, sCorpResult.augustaRent || 0, true)}">${inputs.augustaRate > 0 ? '+' : ''}${formatCurrency(sCorpResult.augustaRent || 0)}</span></div>
+                <div class="flex justify-between"><span>Family Payroll Tax:</span><span class="${getSCorpColorClass(soleResult.familyPayrollTax, sCorpResult.familyPayrollTax)}">${formatCurrency(sCorpResult.familyPayrollTax)}</span></div>
+                <div class="flex justify-between"><span>Admin Costs:</span><span class="${getSCorpColorClass(0, inputs.adminCosts)}">${formatCurrency(inputs.adminCosts)}</span></div>
+                <div class="flex justify-between border-t pt-2 font-semibold"><span>Total Tax:</span><span>${formatCurrency(sCorpResult.totalTax)}</span></div>
+                <div class="flex justify-between"><span>Business Distributions:</span><span class="text-blue-600">${formatCurrency(sCorpResult.distributions)}</span></div>
+                <div class="flex justify-between font-semibold"><span>Net After-Tax Cash:</span><span>${formatCurrency(sCorpResult.netCash)}</span></div>
+                <div class="flex justify-between"><span>Effective Tax Rate:</span><span>${(sCorpResult.effectiveRate * 100).toFixed(1)}%</span></div>
+            `;
+            
+            // Tax Savings (show net benefit including admin costs)
+            const savingsClass = netBenefit > 0 ? 'text-green-600' : 'text-red-600';
+            document.getElementById('taxSavings').innerHTML = `<span class="${savingsClass}">${formatCurrency(netBenefit)}</span>`;
+            document.getElementById('breakEvenSalary').innerHTML = `
+                Break-even salary: ${formatCurrency(breakEvenSalary)}<br>
+                <span class="text-xs text-gray-500">Pure tax savings: ${formatCurrency(pureTaxSavings)} | Admin costs: ${formatCurrency(inputs.adminCosts)}</span>
+            `;
+            
+            // Detailed Breakdown
+            document.getElementById('soleBreakdown').innerHTML = `
+                <div class="flex justify-between"><span>Business Profit:</span><span>${formatCurrency(inputs.profit)}</span></div>
+                <div class="flex justify-between"><span>Taxable Income:</span><span>${formatCurrency(soleResult.taxableIncome)}</span></div>
+                <div class="pl-4 space-y-1 text-gray-600">
+                    <div class="flex justify-between"><span>OASDI:</span><span>${formatCurrency(soleResult.seOasdi)}</span></div>
+                    <div class="flex justify-between"><span>Medicare:</span><span>${formatCurrency(soleResult.seMedicare)}</span></div>
+                    <div class="flex justify-between"><span>Additional Medicare:</span><span>${formatCurrency(soleResult.seSurtax)}</span></div>
+                    <div class="flex justify-between"><span>Family Payroll Tax:</span><span>${formatCurrency(soleResult.familyPayrollTax)}</span></div>
+                </div>
+            `;
+            
+            document.getElementById('sCorpBreakdown').innerHTML = `
+                <div class="flex justify-between"><span>Business Profit:</span><span>${formatCurrency(sCorpResult.businessProfit)}</span></div>
+                <div class="flex justify-between"><span>Distributions:</span><span>${formatCurrency(sCorpResult.distributions)}</span></div>
+                <div class="flex justify-between"><span>Taxable Income:</span><span>${formatCurrency(sCorpResult.taxableIncome)}</span></div>
+                <div class="pl-4 space-y-1 text-gray-600">
+                    <div class="flex justify-between"><span>FUTA:</span><span>${formatCurrency(sCorpResult.futa)}</span></div>
+                    <div class="flex justify-between"><span>SUI:</span><span>${formatCurrency(sCorpResult.sui)}</span></div>
+                    <div class="flex justify-between"><span>Augusta Rule:</span><span>${formatCurrency(sCorpResult.augustaRent)}</span></div>
+                    <div class="flex justify-between"><span>Family Payroll Tax:</span><span>${formatCurrency(sCorpResult.familyPayrollTax)}</span></div>
+                    <div class="flex justify-between"><span>Admin Costs:</span><span>${formatCurrency(inputs.adminCosts)}</span></div>
+                </div>
+            `;
+            
+            // Advisory Flags
+            const flags = [];
+            const salaryPercentage = (inputs.salary / inputs.profit) * 100;
+            
+            if (salaryPercentage < 30) {
+                flags.push(`Salary appears to be ${salaryPercentage.toFixed(1)}% of profit - may trigger IRS scrutiny.`);
+            }
+            
+            if (netBenefit < 3000) {
+                flags.push(`S-Corp net benefit of ${formatCurrency(netBenefit)} - entity switch likely not worth annual admin costs.`);
+            }
+            
+            if (inputs.salary > inputs.profit * 0.8) {
+                flags.push('High salary reduces S-Corp tax advantages - consider optimizing salary level.');
+            }
+            
+            if (flags.length > 0) {
+                document.getElementById('advisoryFlags').classList.remove('hidden');
+                document.getElementById('flagsList').innerHTML = flags.map(flag => `<li class="text-yellow-700">${flag}</li>`).join('');
+            } else {
+                document.getElementById('advisoryFlags').classList.add('hidden');
+            }
+            
+            // Detailed Steps
+            displayDetailedSteps('soleSteps', soleResult.steps);
+            displayDetailedSteps('sCorpSteps', sCorpResult.steps);
+            
+            // Intermediate Values
+            displayIntermediateValues('soleIntermediateValues', soleResult.intermediateValues);
+            displayIntermediateValues('sCorpIntermediateValues', sCorpResult.intermediateValues);
+            
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        function displayDetailedSteps(containerId, steps) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = steps.map((step, index) => `
+                <div class="calculation-step">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-medium text-gray-900">${index + 1}. ${step.label}</h4>
+                        <span class="font-mono text-lg font-semibold text-green-600">${formatCurrency(step.result)}</span>
+                    </div>
+                    <div class="text-sm text-gray-600 mb-1">
+                        <strong>Formula:</strong> ${step.formula}
+                    </div>
+                    <div class="text-sm text-gray-700 font-mono bg-gray-50 p-2 rounded">
+                        <strong>Calculation:</strong> ${step.calculation}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displayIntermediateValues(containerId, values) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = Object.entries(values).map(([key, value]) => `
+                <div class="flex justify-between bg-gray-50 p-2 rounded">
+                    <span class="font-medium">${key.replace(/_/g, ' ')}:</span>
+                    <span class="font-mono">${formatCurrency(value)}</span>
+                </div>
+            `).join('');
+        }
+
+        function toggleDetails(detailsId) {
+            const details = document.getElementById(detailsId);
+            const toggle = document.getElementById(detailsId.replace('Details', 'Toggle'));
+            
+            if (details.classList.contains('hidden')) {
+                details.classList.remove('hidden');
+                toggle.textContent = '▼ Hide Details';
+            } else {
+                details.classList.add('hidden');
+                toggle.textContent = '▶ Show Details';
+            }
+        }
+
+        function toggleAdvanced() {
+            const options = document.getElementById('advancedOptions');
+            const toggle = document.getElementById('advancedToggle');
+            
+            if (options.classList.contains('hidden')) {
+                options.classList.remove('hidden');
+                toggle.textContent = 'Hide Advanced Options';
+            } else {
+                options.classList.add('hidden');
+                toggle.textContent = 'Show Advanced Options';
+            }
+        }
+
+        // Chart variables
+        let savingsChart = null;
+        let currentInputs = null;
+        let currentConstants = null;
+        let currentSoleResult = null;
+        let currentSCorpResult = null;
+
+        function createSavingsChart(inputs, constants, soleResult, sCorpResult) {
+            const ctx = document.getElementById('savingsChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (savingsChart) {
+                savingsChart.destroy();
+            }
+            
+            const growthRate = parseFloat(document.getElementById('growthRate').value) / 100;
+            const annualSavings = soleResult.totalTax - sCorpResult.totalTax;
+            
+            const years = [];
+            const cumulativeSavingsData = [];
+            let cumulativeTotal = 0;
+            
+            for (let year = 1; year <= 10; year++) {
+                years.push(`Year ${year}`);
+                
+                // Calculate savings for this year with growth
+                const yearlyProfit = inputs.profit * Math.pow(1 + growthRate, year - 1);
+                const adjustedInputs = { ...inputs, profit: yearlyProfit, salary: inputs.salary * Math.pow(1 + growthRate, year - 1) };
+                
+                const soleResultYear = calculateSoleProprietor(adjustedInputs, constants);
+                const sCorpResultYear = calculateSCorp(adjustedInputs, constants);
+                const yearlySavings = soleResultYear.totalTax - sCorpResultYear.totalTax - adjustedInputs.adminCosts;
+                
+                cumulativeTotal += yearlySavings;
+                cumulativeSavingsData.push(cumulativeTotal);
+            }
+            
+            savingsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: [
+                        {
+                            label: 'Cumulative Tax Savings',
+                            data: cumulativeSavingsData,
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `S-Corp Cumulative Tax Savings Over 10 Years (${(growthRate * 100).toFixed(1)}% annual growth)`
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Year'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Cumulative Savings ($)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            radius: 4,
+                            hoverRadius: 6
+                        }
+                    }
+                }
+            });
+            
+            // Update total savings display
+            document.getElementById('totalSavings').textContent = formatCurrency(cumulativeTotal);
+            
+            // Store current data for chart updates
+            currentInputs = inputs;
+            currentConstants = constants;
+            currentSoleResult = soleResult;
+            currentSCorpResult = sCorpResult;
+        }
+
+        function updateChart() {
+            if (currentInputs && currentConstants && currentSoleResult && currentSCorpResult) {
+                createSavingsChart(currentInputs, currentConstants, currentSoleResult, currentSCorpResult);
+            }
+        }
+
+        // Toggle manual retirement options based on max solo 401k checkbox
+        document.getElementById('maxSolo401k').addEventListener('change', function() {
+            const manualOptions = document.getElementById('manualRetirementOptions');
+            if (this.checked) {
+                manualOptions.classList.add('hidden');
+            } else {
+                manualOptions.classList.remove('hidden');
+            }
+        });
+
+        // PDF Export Function
+        async function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            
+            // Get current date
+            const today = new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            // PDF Header
+            pdf.setFontSize(20);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('S-Corp vs Sole Proprietor Tax Analysis', 20, 25);
+            
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`Report Date: ${today}`, 20, 35);
+            
+            // Get input values for summary
+            const inputs = {
+                profit: parseInt(document.getElementById('profit').value),
+                salary: parseInt(document.getElementById('salary').value),
+                filingStatus: document.getElementById('filingStatus').value,
+                isSSB: document.getElementById('isSSB').checked,
+                healthPremium: parseInt(document.getElementById('healthPremium').value),
+                hsaContrib: parseInt(document.getElementById('hsaContrib').value),
+                adminCosts: parseInt(document.getElementById('adminCosts').value)
+            };
+            
+            // Input Summary
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Analysis Parameters', 20, 50);
+            
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            let yPos = 60;
+            pdf.text(`Net Business Profit: ${formatCurrency(inputs.profit)}`, 20, yPos);
+            yPos += 6;
+            pdf.text(`S-Corp Salary: ${formatCurrency(inputs.salary)}`, 20, yPos);
+            yPos += 6;
+            pdf.text(`Filing Status: ${inputs.filingStatus.toUpperCase()}`, 20, yPos);
+            yPos += 6;
+            pdf.text(`SSTB Business: ${inputs.isSSB ? 'Yes' : 'No'}`, 20, yPos);
+            yPos += 6;
+            pdf.text(`Health Insurance Premium: ${formatCurrency(inputs.healthPremium)}`, 20, yPos);
+            yPos += 6;
+            pdf.text(`HSA Contribution: ${formatCurrency(inputs.hsaContrib)}`, 20, yPos);
+            yPos += 6;
+            pdf.text(`S-Corp Admin Costs: ${formatCurrency(inputs.adminCosts)}`, 20, yPos);
+            
+            // Capture the comparison results section
+            yPos += 15;
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Tax Comparison Results', 20, yPos);
+            
+            // Get the results data
+            const soleResults = document.getElementById('soleResults').textContent;
+            const sCorpResults = document.getElementById('sCorpResults').textContent;
+            const taxSavingsElement = document.getElementById('taxSavings');
+            const breakEvenElement = document.getElementById('breakEvenSalary');
+            
+            yPos += 10;
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Sole Proprietor', 20, yPos);
+            pdf.text('S-Corporation', 110, yPos);
+            
+            // Draw a line
+            yPos += 5;
+            pdf.line(20, yPos, 190, yPos);
+            
+            // Get detailed results for both sides
+            const soleDiv = document.getElementById('soleResults');
+            const sCorpDiv = document.getElementById('sCorpResults');
+            
+            yPos += 8;
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            
+            // Extract and format the results
+            const soleLines = Array.from(soleDiv.children).map(div => {
+                const spans = div.querySelectorAll('span');
+                return `${spans[0].textContent} ${spans[1].textContent}`;
+            });
+            
+            const sCorpLines = Array.from(sCorpDiv.children).map(div => {
+                const spans = div.querySelectorAll('span');
+                return `${spans[0].textContent} ${spans[1].textContent}`;
+            });
+            
+            // Print both columns
+            for (let i = 0; i < Math.max(soleLines.length, sCorpLines.length); i++) {
+                if (soleLines[i]) {
+                    pdf.text(soleLines[i], 20, yPos);
+                }
+                if (sCorpLines[i]) {
+                    pdf.text(sCorpLines[i], 110, yPos);
+                }
+                yPos += 5;
+            }
+            
+            // Tax Savings Summary
+            yPos += 10;
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Annual Tax Savings Summary', 20, yPos);
+            
+            yPos += 10;
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`Net Annual Savings: ${taxSavingsElement.textContent}`, 20, yPos);
+            
+            yPos += 8;
+            pdf.setFontSize(10);
+            const breakEvenText = breakEvenElement.textContent.split('\n')[0]; // Get just the first line
+            pdf.text(breakEvenText, 20, yPos);
+            
+            // Capture and add the chart
+            yPos += 20;
+            if (yPos > 250) {
+                pdf.addPage();
+                yPos = 25;
+            }
+            
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('10-Year Cumulative Savings Projection', 20, yPos);
+            
+            try {
+                const chartCanvas = document.getElementById('savingsChart');
+                if (chartCanvas) {
+                    const chartImage = chartCanvas.toDataURL('image/png');
+                    pdf.addImage(chartImage, 'PNG', 20, yPos + 10, 170, 100);
+                    
+                    yPos += 120;
+                    const totalSavingsText = document.getElementById('totalSavings').textContent;
+                    pdf.setFontSize(12);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text(`Total 10-Year Savings: ${totalSavingsText}`, 20, yPos);
+                }
+            } catch (error) {
+                console.log('Chart capture failed:', error);
+                yPos += 10;
+                pdf.setFontSize(10);
+                pdf.text('Chart could not be included in PDF export.', 20, yPos);
+            }
+            
+            // Footer
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'italic');
+            pdf.text('This analysis is for internal advisory estimates only and does not constitute tax advice.', 20, 280);
+            pdf.text('Please consult with a qualified tax professional for personalized guidance.', 20, 285);
+            
+            // Save the PDF
+            const fileName = `S-Corp_Tax_Analysis_${new Date().toISOString().split('T')[0]}.pdf`;
+            pdf.save(fileName);
+        }
+
+        document.getElementById('calculatorForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            
+            setTimeout(() => {
+                const inputs = {
+                    taxYear: parseInt(document.getElementById('taxYear').value),
+                    profit: parseInt(document.getElementById('profit').value),
+                    salary: parseInt(document.getElementById('salary').value),
+                    filingStatus: document.getElementById('filingStatus').value,
+                    isSSB: document.getElementById('isSSB').checked,
+                    maxSolo401k: document.getElementById('maxSolo401k').checked,
+                    healthPremium: parseInt(document.getElementById('healthPremium').value),
+                    hsaContrib: parseInt(document.getElementById('hsaContrib').value),
+                    adminCosts: parseInt(document.getElementById('adminCosts').value),
+                    suiRate: parseFloat(document.getElementById('suiRate').value),
+                    suiWageBase: parseInt(document.getElementById('suiWageBase').value),
+                    augustaRate: parseInt(document.getElementById('augustaRate').value),
+                    augustaDays: parseInt(document.getElementById('augustaDays').value),
+                    childWages: parseInt(document.getElementById('childWages').value),
+                    spouseWages: parseInt(document.getElementById('spouseWages').value),
+                    employeeDeferral: parseInt(document.getElementById('employeeDeferral').value) || 0,
+                    employerPct: parseInt(document.getElementById('employerPct').value) || 0
+                };
+                
+                const constants = TAX_CONSTANTS[inputs.taxYear];
+                
+                const soleResult = calculateSoleProprietor(inputs, constants);
+                const sCorpResult = calculateSCorp(inputs, constants);
+                
+                document.getElementById('loading').classList.add('hidden');
+                displayResults(soleResult, sCorpResult, inputs, constants);
+                
+                // Create the 10-year savings chart
+                createSavingsChart(inputs, constants, soleResult, sCorpResult);
+            }, 500);
+        });
+    </script>
+</body>
+</html>
