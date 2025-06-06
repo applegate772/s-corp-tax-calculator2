@@ -17,16 +17,79 @@
             margin-bottom: 1rem;
         }
         .hidden { display: none; }
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .login-form {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 100%;
+            max-width: 400px;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
-    <div class="min-h-screen">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-form">
+            <div class="text-center mb-8">
+                <div class="flex justify-center items-center mb-4">
+                    <img src="docwealth-logo.png" alt="Doc Wealth Logo" class="h-12 w-auto" onerror="this.style.display='none'">
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                    S-Corp Tax Calculator
+                </h1>
+                <p class="text-gray-600">Secure Access Required</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        Password
+                    </label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter password"
+                        required
+                    >
+                </div>
+                
+                <button 
+                    type="submit" 
+                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+                >
+                    Access Calculator
+                </button>
+                
+                <div id="loginError" class="hidden text-red-600 text-sm text-center">
+                    Incorrect password. Please try again.
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application (Hidden by default) -->
+    <div id="mainApp" class="min-h-screen hidden">
         <div class="container mx-auto px-4 py-8">
-            <header class="text-center mb-8">
+            <header class="text-center mb-8 relative">
+                <div class="flex justify-center items-center mb-4">
+                    <img src="docwealth-logo.png" alt="Doc Wealth Logo" class="h-16 w-auto" onerror="this.style.display='none'">
+                </div>
                 <h1 class="text-4xl font-bold text-gray-900 mb-2">
                     S-Corp vs Sole Proprietor Tax Calculator
                 </h1>
-                <p class="text-gray-600">Internal tool for comparing tax scenarios</p>
+                <p class="text-gray-600">Doc Wealth Internal Tool</p>
+                <button onclick="logout()" class="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm">
+                    Logout
+                </button>
             </header>
 
             <div class="max-w-6xl mx-auto">
@@ -67,7 +130,7 @@
 
                             <div>
                                 <label class="block text-sm font-medium mb-1">
-                                    <input type="checkbox" id="isSSB" class="mr-2">
+                                    <input type="checkbox" id="isSSB" class="mr-2" checked>
                                     Specified Service Trade/Business (SSTB)
                                 </label>
                             </div>
@@ -109,12 +172,12 @@
 
                             <div>
                                 <label class="block text-sm font-medium mb-1">Augusta Rule Daily Rate ($)</label>
-                                <input type="number" id="augustaRate" value="0" class="w-full p-2 border rounded" min="0" step="50">
+                                <input type="number" id="augustaRate" value="200" class="w-full p-2 border rounded" min="0" step="50">
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium mb-1">Augusta Rule Days (max 14)</label>
-                                <input type="number" id="augustaDays" value="0" class="w-full p-2 border rounded" min="0" max="14">
+                                <input type="number" id="augustaDays" value="10" class="w-full p-2 border rounded" min="0" max="14">
                             </div>
 
                             <div>
@@ -267,14 +330,49 @@
                     </div>
                 </div>
 
-                <div class="text-center text-sm text-gray-500 mt-8">
-                    <p>For internal advisory estimates only - not tax advice</p>
-                </div>
             </div>
         </div>
     </div>
+    </div>
 
     <script>
+        // Password protection
+        const CORRECT_PASSWORD = 'docwealth1';
+        
+        // Check if user is already authenticated
+        if (sessionStorage.getItem('authenticated') === 'true') {
+            showMainApp();
+        }
+        
+        // Login form handler
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            if (password === CORRECT_PASSWORD) {
+                sessionStorage.setItem('authenticated', 'true');
+                showMainApp();
+                errorDiv.classList.add('hidden');
+            } else {
+                errorDiv.classList.remove('hidden');
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+            }
+        });
+        
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+        }
+        
+        function logout() {
+            sessionStorage.removeItem('authenticated');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('password').value = '';
+        }
+
         // Tax constants for different years
         const TAX_CONSTANTS = {
             2023: {
